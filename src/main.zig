@@ -1,24 +1,38 @@
 const std = @import("std");
+const Vulture = @import("Vulture");
+
+fn testRoutGetSend(c: *Vulture.Context) anyerror!void {
+    if (c.req.headers.contains("Authorization")) {
+        std.debug.print("ok", .{});
+    }
+    try c.send("Hello Word");
+}
+
+fn testRoutGetSendJson(c: *Vulture.Context) anyerror!void {
+    if (c.req.headers.contains("Authorization")) {
+        std.debug.print("ok", .{});
+    }
+    try c.sendJson(.{ .msg = "Hello Word" });
+}
+
+fn testRoutGetBadRequestSendJson(c: *Vulture.Context) anyerror!void {
+    if (c.req.headers.contains("Authorization")) {
+        std.debug.print("ok", .{});
+    }
+    try c.setStatus(.bad_request).sendJson(.{ .msg = "Bad Request" });
+}
 
 pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+    const ally = std.heap.page_allocator;
 
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
+    var app = Vulture.init(ally);
+    defer app.deinit();
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
+    try app.newRoute(.GET, "/test1", testRoutGetSend);
+    try app.newRoute(.GET, "/test2", testRoutGetSendJson);
+    try app.newRoute(.GET, "/test3", testRoutGetBadRequestSendJson);
 
-    try bw.flush(); // don't forget to flush!
+    try app.listen("0.0.0.0", 8080);
 }
 
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
-}
+test "simple test" {}
