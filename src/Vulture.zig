@@ -11,11 +11,12 @@ pub const Vulture = @This();
 pub const RouteFunc = *const fn (*Context) anyerror!void;
 
 pub const Route = struct {
-    method: http.Method,
+    method: ?http.Method,
     handleFunc: RouteFunc,
 };
 
 pub const Context = struct {
+    cookies: ?std.StringHashMap(Cookie) = null,
     params: ?std.StringHashMap([]const u8) = null,
     arena: std.heap.ArenaAllocator,
     res: *http.Server.Response,
@@ -34,7 +35,65 @@ pub const Context = struct {
         ctx.arena.deinit();
     }
 
+    const Cookie = struct {
+        http_only: bool,
+        name: []const u8,
+        value: []const u8,
+        domain: []const u8,
+        expires: usize,
+    };
+
+    const Accept = enum {
+        @"text/html",
+        @"application/json",
+        @"application/xml",
+        @"text/xml",
+        @"image/jpeg",
+        @"image/png",
+        @"image/gif",
+        @"*/*",
+        @"text/*",
+        @"application/*",
+    };
+
+    pub fn setCookie(c: *Context, cookie: *const Cookie) void {
+        if (c.cookies) |cookies| {
+            try cookies.put(cookie.name, cookie);
+
+            if (!c.res.headers.contains("cookie")) {
+                try c.res.headers.append("cookie", cookie.value);
+            }
+
+            @panic("Not Implemented");
+        }
+
+        c.cookies = std.AutoHashMap([]const u8, Cookie).init(c.arena.allocator());
+    }
+
+    pub fn bodyParse(c: *Context, comptime T: type) !T {
+        const allocator = c.arena.allocator();
+
+        const body = try c.res.reader().readAllAlloc(allocator, std.math.maxInt(usize));
+        errdefer allocator.free(body);
+
+        return try std.json.parseFromSliceLeaky(T, allocator, body, .{});
+    }
+
+    /// caller owns the memory
+    pub fn bodyToParsed(allocator: std.mem.Allocator, c: *Context, comptime T: type, buff: []u8) !std.json.Parsed(T) {
+        try c.res.readAll(buff);
+        return try std.json.parseFromSlice(T, allocator, buff, .{});
+    }
+
+    // matchs the accept header
+    pub fn accept(c: *Context, offers: []const u8) Accept {
+        _ = offers;
+        _ = c;
+        @panic("Not Implemented");
+    }
+
     pub fn send(c: *Context, string: []const u8) !void {
+        try c.res.headers.append("content-type", "application/txt");
         try c.write(string);
     }
 
@@ -42,13 +101,13 @@ pub const Context = struct {
         const allocator = c.arena.allocator();
         const json_string = try std.json.stringifyAlloc(allocator, json_struct, .{});
         errdefer allocator.free(json_string);
+        try c.res.headers.append("content-type", "application/json");
         try c.write(json_string);
     }
 
     /// Send the bytes and eval the header
     fn write(c: *Context, bytes: []const u8) !void {
         c.res.transfer_encoding = .{ .content_length = bytes.len };
-        try c.res.headers.append("content-type", "application/json");
         try c.res.headers.append("connection", "close");
         try c.res.send();
         try c.res.writeAll(bytes);
@@ -108,8 +167,24 @@ pub fn deinit(self: *Vulture) void {
     self.routes.deinit();
 }
 
-pub fn newRoute(self: *Vulture, method: http.Method, target: []const u8, handleFunc: RouteFunc) !void {
+pub const StaticConfig = struct {};
+
+pub fn newStaticRoute(self: *Vulture, target: []const u8, path: []const u8, config: StaticConfig) !void {
+    _ = config;
+    _ = path;
+    _ = target;
+    _ = self;
+    @panic("Not Implemented");
+}
+
+/// create a new route
+pub fn new(self: *Vulture, method: http.Method, target: []const u8, handleFunc: RouteFunc) !void {
     try self.routes.put(target, .{ .method = method, .handleFunc = handleFunc });
+}
+
+/// match a giver route. Can use any http method
+pub fn match(self: *Vulture, route: []const u8, handleFunc: RouteFunc) !void {
+    try self.routes.put(route, .{ .method = null, .handleFunc = handleFunc });
 }
 
 pub fn get(self: *Vulture, target: []const u8, handleFunc: RouteFunc) !void {
