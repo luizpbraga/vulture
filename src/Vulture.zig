@@ -120,6 +120,34 @@ pub fn post(self: *Vulture, target: []const u8, handleFunc: RouteFunc) !void {
     try self.routes.put(target, .{ .method = .POST, .handleFunc = handleFunc });
 }
 
+pub fn head(self: *Vulture, target: []const u8, handleFunc: RouteFunc) !void {
+    try self.routes.put(target, .{ .method = .HEAD, .handleFunc = handleFunc });
+}
+
+pub fn delete(self: *Vulture, target: []const u8, handleFunc: RouteFunc) !void {
+    try self.routes.put(target, .{ .method = .DELETE, .handleFunc = handleFunc });
+}
+
+pub fn connect(self: *Vulture, target: []const u8, handleFunc: RouteFunc) !void {
+    try self.routes.put(target, .{ .method = .CONNECT, .handleFunc = handleFunc });
+}
+
+pub fn options(self: *Vulture, target: []const u8, handleFunc: RouteFunc) !void {
+    try self.routes.put(target, .{ .method = .OPTIONS, .handleFunc = handleFunc });
+}
+
+pub fn patch(self: *Vulture, target: []const u8, handleFunc: RouteFunc) !void {
+    try self.routes.put(target, .{ .method = .PATCH, .handleFunc = handleFunc });
+}
+
+pub fn trace(self: *Vulture, target: []const u8, handleFunc: RouteFunc) !void {
+    try self.routes.put(target, .{ .method = .TRACE, .handleFunc = handleFunc });
+}
+
+pub fn put(self: *Vulture, target: []const u8, handleFunc: RouteFunc) !void {
+    try self.routes.put(target, .{ .method = .PUT, .handleFunc = handleFunc });
+}
+
 pub fn listen(self: *Vulture, address: []const u8, port: u16) !void {
     const addr = try net.Address.parseIp4(address, port);
 
